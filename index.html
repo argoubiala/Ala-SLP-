@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ala SLP Activities</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span>🗣️</span> Ala SLP</div>
+  <div class="header-actions">
+    <span class="user-email" id="userEmail"></span>
+    <button class="theme-btn" onclick="showThemePanel()">🎨 Theme</button>
+    <button class="home-btn" onclick="currentUser ? showHome() : showAuthScreen()">Home</button>
+    <button class="home-btn" id="logoutBtn" style="display:none" onclick="handleLogout()">Log out</button>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
