@@ -1,26 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ala SLP Activities</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header>
-  <div class="brand"><span>🗣️</span> Ala SLP</div>
-  <div class="header-actions">
-    <span class="user-email" id="userEmail"></span>
-    <button class="theme-btn" onclick="showThemePanel()">🎨 Theme</button>
-    <button class="home-btn" onclick="currentUser ? showHome() : showAuthScreen()">Home</button>
-    <button class="home-btn" id="logoutBtn" style="display:none" onclick="handleLogout()">Log out</button>
-  </div>
-</header>
-
-<main id="app"></main>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
-<script src="app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ala SLP Activities</title>
+    <meta name="description" content="Interactive speech-language therapy activities for SLPs." />
+    <!-- Decodes the path GitHub Pages' 404.html encoded into the query
+         string, restoring the real URL before React Router mounts.
+         See public/404.html for the encoding side of this pattern. -->
+    <script type="text/javascript">
+      (function (l) {
+        if (l.search[1] === "/") {
+          var decoded = l.search
+            .slice(1)
+            .split("&")
+            .map(function (s) {
+              return s.replace(/~and~/g, "&");
+            })
+            .join("?");
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })(window.location);
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
