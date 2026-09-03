@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  GitHub Pages serves this file for any URL it doesn't recognize as a real
+  file (e.g. a deep link like /my-decks after a page refresh, since GitHub
+  Pages has no server-side routing). This encodes the intended path into a
+  query string and redirects to index.html, which decodes it (see the
+  inline script in index.html) before React Router mounts.
+
+  pathSegmentsToKeep = 1 assumes a standard GitHub Pages *project* site
+  (https://<username>.github.io/<repo-name>/...). If you ever move this to
+  a custom domain or a user/org root site (https://<username>.github.io),
+  change it to 0.
+
+  Pattern: https://github.com/rafgraph/spa-github-pages
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ala SLP Activities</title>
+    <script type="text/javascript">
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol + "//" + l.hostname + (l.port ? ":" + l.port : "") +
+        l.pathname.split("/").slice(0, 1 + pathSegmentsToKeep).join("/") + "/?/" +
+        l.pathname.slice(1).split("/").slice(pathSegmentsToKeep).join("/").replace(/&/g, "~and~") +
+        (l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
