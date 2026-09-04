@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter } from "react-router";
 import Shell from "../components/layout/Shell";
 import RequireAuth from "../components/layout/RequireAuth";
 import Login from "../pages/Login";
@@ -8,6 +8,9 @@ import DeckCreator from "../pages/DeckCreator";
 import ActivityPlayer from "../pages/ActivityPlayer";
 import Settings from "../pages/Settings";
 import ComingSoon from "../pages/ComingSoon";
+import Explore from "../pages/Explore";
+import ActivityDetail from "../pages/ActivityDetail";
+import CreatorProfile from "../pages/CreatorProfile";
 
 function NotFound() {
   return (
@@ -31,14 +34,8 @@ export const router = createBrowserRouter(
       ),
       children: [
         { index: true, Component: Home },
-        {
-          path: "explore",
-          element: <ComingSoon icon="🔍" title="Explore is coming soon" description="Soon you'll be able to browse and use activities published by other therapists here." />,
-        },
-        {
-          path: "activity/:id",
-          element: <Navigate to="/my-decks" replace />,
-        },
+        { path: "explore", Component: Explore },
+        { path: "activity/:id", Component: ActivityDetail },
         { path: "my-decks", Component: MyDecks },
         {
           path: "students",
@@ -52,10 +49,7 @@ export const router = createBrowserRouter(
           path: "progress",
           element: <ComingSoon icon="📈" title="Progress tracking is coming soon" description="Session history, accuracy trends, and goal progress will show up here." />,
         },
-        {
-          path: "creator/:id",
-          element: <ComingSoon icon="👤" title="Creator profiles are coming soon" description="Public creator profiles will appear here once publishing is available." />,
-        },
+        { path: "creator/:id", Component: CreatorProfile },
         { path: "settings", Component: Settings },
         { path: "*", Component: NotFound },
       ],

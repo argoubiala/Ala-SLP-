@@ -1,117 +1,114 @@
-import { useState } from "react";
-import { activities, categories, ageRanges, languages } from "../data/mockData";
-import { Input, Tag, SectionHeader, Button, Badge } from "../components/ui/index";
+import { useEffect, useMemo, useState } from "react";
+import { Input, Tag, SectionHeader } from "../components/ui/index";
 import ActivityCard from "../components/ActivityCard";
+import { fetchExploreDecks } from "../lib/community";
+import { categoryInfo } from "../data/builtinDecks";
+import type { CategoryKey, ExploreDeck, SortOption } from "../lib/types";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "popular", label: "Popular" },
+  { value: "recent", label: "Recently Published" },
+  { value: "rating", label: "Highest Rated" },
+  { value: "most_used", label: "Most Used" },
+];
 
 export default function Explore() {
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedAge, setSelectedAge] = useState("All Ages");
-  const [selectedLang, setSelectedLang] = useState("All Languages");
-  const [favs, setFavs] = useState<Set<string>>(new Set());
+  const [category, setCategory] = useState<"All" | CategoryKey>("All");
+  const [ageRange, setAgeRange] = useState("All");
+  const [language, setLanguage] = useState("All");
+  const [sort, setSort] = useState<SortOption>("popular");
 
-  const publicActivities = activities.filter(a => a.status === "public");
+  const [decks, setDecks] = useState<ExploreDeck[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = publicActivities.filter(a => {
-    const matchSearch = !search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description.toLowerCase().includes(search.toLowerCase()) || a.tags.some(t => t.includes(search.toLowerCase()));
-    const matchCat = selectedCategory === "All" || a.category === selectedCategory;
-    const matchLang = selectedLang === "All Languages" || a.language === selectedLang || (selectedLang === "Bilingual" && a.language === "Bilingual");
-    return matchSearch && matchCat && matchLang;
-  });
+  useEffect(() => {
+    setError(null);
+    fetchExploreDecks({ search, category, ageRange, language, sort })
+      .then(setDecks)
+      .catch(e => setError(e.message || "Couldn't load Explore"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, category, ageRange, language, sort]);
 
-  const featured = publicActivities.filter(a => a.rating >= 4.8).slice(0, 3);
+  const ageOptions = useMemo(() => {
+    const s = new Set<string>();
+    (decks || []).forEach(d => d.age_range && s.add(d.age_range));
+    return ["All", ...Array.from(s).sort()];
+  }, [decks]);
 
-  const toggleFav = (id: string) => {
-    setFavs(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const withFavs = filtered.map(a => ({ ...a, isFavorited: favs.has(a.id) }));
+  const languageOptions = useMemo(() => {
+    const s = new Set<string>();
+    (decks || []).forEach(d => d.language && s.add(d.language));
+    return ["All", ...Array.from(s).sort()];
+  }, [decks]);
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
       <div>
         <h1 className="font-display font-bold text-2xl text-[#1C1B29]">Explore Activities</h1>
-        <p className="text-[#6B6B80] text-sm mt-1">Discover and use activities created by the SLP community</p>
+        <p className="text-[#6B6B80] text-sm mt-1">Discover and use activities published by other therapists</p>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Input
-          placeholder="Search activities, skills, or keywords…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          icon={<span className="text-sm">🔍</span>}
-          className="text-base py-3 pl-10"
-        />
-      </div>
+      <Input
+        placeholder="Search activities, tags, or keywords…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        icon={<span className="text-sm">🔍</span>}
+        className="text-base py-3 pl-10"
+      />
 
-      {/* Filters */}
       <div className="space-y-3">
         <div>
           <p className="text-xs font-semibold text-[#9898A8] uppercase tracking-wider mb-2">Category</p>
           <div className="flex flex-wrap gap-2">
-            {categories.map(c => (
-              <Tag key={c} active={selectedCategory === c} onClick={() => setSelectedCategory(c)}>{c}</Tag>
+            <Tag active={category === "All"} onClick={() => setCategory("All")}>All</Tag>
+            {Object.entries(categoryInfo).map(([k, v]) => (
+              <Tag key={k} active={category === k} onClick={() => setCategory(k as CategoryKey)}>{v.emoji} {v.name}</Tag>
             ))}
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-6">
           <div>
             <p className="text-xs font-semibold text-[#9898A8] uppercase tracking-wider mb-2">Age Range</p>
             <div className="flex flex-wrap gap-2">
-              {ageRanges.map(a => (
-                <Tag key={a} active={selectedAge === a} onClick={() => setSelectedAge(a)}>{a}</Tag>
-              ))}
+              {ageOptions.map(a => <Tag key={a} active={ageRange === a} onClick={() => setAgeRange(a)}>{a}</Tag>)}
             </div>
           </div>
           <div>
             <p className="text-xs font-semibold text-[#9898A8] uppercase tracking-wider mb-2">Language</p>
             <div className="flex flex-wrap gap-2">
-              {languages.map(l => (
-                <Tag key={l} active={selectedLang === l} onClick={() => setSelectedLang(l)}>{l}</Tag>
-              ))}
+              {languageOptions.map(l => <Tag key={l} active={language === l} onClick={() => setLanguage(l)}>{l}</Tag>)}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#9898A8] uppercase tracking-wider mb-2">Sort by</p>
+            <div className="flex flex-wrap gap-2">
+              {SORT_OPTIONS.map(s => <Tag key={s.value} active={sort === s.value} onClick={() => setSort(s.value)}>{s.label}</Tag>)}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Featured */}
-      {!search && selectedCategory === "All" && (
-        <section>
-          <SectionHeader title="⭐ Featured This Week" subtitle="Top-rated activities from the community" />
-          <div className="mt-4 grid sm:grid-cols-3 gap-4">
-            {featured.map(a => (
-              <div key={a.id} className="relative">
-                <div className="absolute top-3 left-3 z-10 bg-[#F59E0B] text-white text-xs font-bold px-2 py-0.5 rounded-full">Featured</div>
-                <ActivityCard activity={{ ...a, isFavorited: favs.has(a.id) }} onFavorite={toggleFav} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {error && <div className="text-sm font-medium text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{error}</div>}
 
-      {/* Results */}
       <section>
         <SectionHeader
           title={search ? `Results for "${search}"` : "All Activities"}
-          subtitle={`${withFavs.length} ${withFavs.length === 1 ? "activity" : "activities"} found`}
+          subtitle={decks === null ? "Loading…" : `${decks.length} ${decks.length === 1 ? "activity" : "activities"} found`}
         />
-        {withFavs.length === 0 ? (
+        {decks === null ? (
+          <div className="flex justify-center py-20">
+            <div className="w-8 h-8 border-3 border-[#EAE4FF] border-t-[#7C5CFC] rounded-full animate-spin" />
+          </div>
+        ) : decks.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-center">
             <p className="text-5xl mb-4">🔍</p>
-            <h3 className="font-bold text-[#1C1B29] text-lg mb-2">No activities found</h3>
-            <p className="text-[#6B6B80] text-sm">Try different keywords or filters</p>
+            <h3 className="font-bold text-[#1C1B29] text-lg mb-2">No activities found yet</h3>
+            <p className="text-[#6B6B80] text-sm">Be the first to publish one from My Decks, or try different filters</p>
           </div>
         ) : (
           <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {withFavs.map(a => (
-              <ActivityCard key={a.id} activity={a} onFavorite={toggleFav} />
-            ))}
+            {decks.map(a => <ActivityCard key={a.id} activity={a} />)}
           </div>
         )}
       </section>

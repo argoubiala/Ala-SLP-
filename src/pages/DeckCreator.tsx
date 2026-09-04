@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Button, Select, Textarea } from "../components/ui/index";
+import { Button, Select, Textarea, Modal, Input } from "../components/ui/index";
 import { useAuth } from "../lib/auth";
 import { categoryInfo } from "../data/builtinDecks";
 import {
@@ -11,7 +11,8 @@ import {
   deleteMediaFile,
   getSignedMediaUrl,
 } from "../lib/decks";
-import type { CategoryKey, DeckCard } from "../lib/types";
+import { updateDeckPublishing } from "../lib/community";
+import type { CategoryKey, DeckCard, Visibility } from "../lib/types";
 
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -73,6 +74,14 @@ export default function DeckCreator() {
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>("private");
+  const [allowCopy, setAllowCopy] = useState(true);
+  const [ageRange, setAgeRange] = useState("");
+  const [language, setLanguage] = useState("English");
+  const [tagsText, setTagsText] = useState("");
+  const [publishing, setPublishing] = useState(false);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
   const objectUrlsRef = useRef<string[]>([]);
@@ -90,6 +99,11 @@ export default function DeckCreator() {
         setTitle(deck.title);
         setDescription(deck.description || "");
         setCategory(deck.category);
+        setVisibility(deck.visibility || "private");
+        setAllowCopy(deck.allow_copy ?? true);
+        setAgeRange(deck.age_range || "");
+        setLanguage(deck.language || "English");
+        setTagsText((deck.tags || []).join(", "));
         const loaded: EditableCard[] = await Promise.all(
           deck.cards.map(async (c: DeckCard) => {
             const card = makeCard();
@@ -289,6 +303,29 @@ export default function DeckCreator() {
     if (id) navigate(`/play/${id}`);
   }
 
+  async function handleOpenPublish() {
+    const id = deckId || (await handleSave());
+    if (!id) return;
+    setPublishOpen(true);
+  }
+
+  async function handlePublish() {
+    if (!deckId) return;
+    setPublishing(true);
+    try {
+      const tags = tagsText
+        .split(",")
+        .map(t => t.trim())
+        .filter(Boolean);
+      await updateDeckPublishing(deckId, { visibility, allow_copy: allowCopy, age_range: ageRange, language, tags });
+      setPublishOpen(false);
+    } catch (e: any) {
+      alert("Couldn't update publishing settings: " + (e.message || e));
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[#F7F6F3]">
@@ -332,7 +369,7 @@ export default function DeckCreator() {
           <Button variant="secondary" size="sm" onClick={handleSave} loading={saving}>
             {saveState === "saved" ? "✓ Saved!" : "💾 Save"}
           </Button>
-          <Button size="sm" disabled title="Publishing to the community is coming soon">🌐 Publish</Button>
+          <Button size="sm" onClick={handleOpenPublish}>🌐 Publish</Button>
         </div>
       </header>
 
@@ -525,6 +562,48 @@ export default function DeckCreator() {
           </div>
         </div>
       </div>
+
+      <Modal open={publishOpen} onClose={() => setPublishOpen(false)} title="Publish this activity" size="md">
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-medium text-[#1C1B29] mb-2">Visibility</p>
+            <div className="space-y-2">
+              {([
+                { value: "private", label: "Private", desc: "Only you can see and use this" },
+                { value: "unlisted", label: "Unlisted", desc: "Anyone with a direct link can view it, but it won't appear in Explore" },
+                { value: "public", label: "Public", desc: "Listed in Explore for any therapist to find" },
+              ] as { value: Visibility; label: string; desc: string }[]).map(opt => (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${visibility === opt.value ? "border-[#7C5CFC] bg-[#F3F0FF]" : "border-[#E8E7F0]"}`}
+                >
+                  <input type="radio" name="visibility" className="mt-1" checked={visibility === opt.value} onChange={() => setVisibility(opt.value)} />
+                  <div>
+                    <p className="text-sm font-semibold text-[#1C1B29]">{opt.label}</p>
+                    <p className="text-xs text-[#9898A8]">{opt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Age range" placeholder="e.g. 4-7" value={ageRange} onChange={e => setAgeRange(e.target.value)} />
+            <Input label="Language" placeholder="English" value={language} onChange={e => setLanguage(e.target.value)} />
+          </div>
+          <Input label="Tags" placeholder="comma, separated, tags" value={tagsText} onChange={e => setTagsText(e.target.value)} />
+
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={allowCopy} onChange={e => setAllowCopy(e.target.checked)} />
+            <span className="text-sm text-[#1C1B29]">Allow other therapists to copy this activity</span>
+          </label>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setPublishOpen(false)}>Cancel</Button>
+            <Button onClick={handlePublish} loading={publishing}>Save Publishing Settings</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

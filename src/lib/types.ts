@@ -27,6 +27,8 @@ export interface DeckCard {
   soundPath?: string | null; // path in Supabase Storage 'media' bucket
 }
 
+export type Visibility = "private" | "unlisted" | "public";
+
 // A deck the user owns, stored in Supabase.
 export interface CustomDeck {
   id: string;
@@ -37,7 +39,48 @@ export interface CustomDeck {
   cards: DeckCard[];
   created_at: string;
   updated_at?: string;
+  visibility: Visibility;
+  allow_copy: boolean;
+  age_range: string | null;
+  language: string;
+  tags: string[];
+  use_count: number;
 }
+
+export interface Profile {
+  id: string;
+  display_name: string | null;
+  bio: string | null;
+  profession: string | null;
+  avatar_emoji: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// A row from the `explore_decks` view — a public deck with creator info and
+// aggregated rating/favorite counts pre-joined.
+export interface ExploreDeck {
+  id: string;
+  user_id: string;
+  category: CategoryKey;
+  title: string;
+  description: string;
+  cards: DeckCard[];
+  visibility: Visibility;
+  allow_copy: boolean;
+  age_range: string | null;
+  language: string;
+  tags: string[];
+  use_count: number;
+  created_at: string;
+  creator_name: string | null;
+  creator_avatar: string | null;
+  avg_rating: number;
+  rating_count: number;
+  favorite_count: number;
+}
+
+export type SortOption = "popular" | "recent" | "rating" | "most_used";
 
 // A built-in sample deck, hard-coded client-side (no login needed to view).
 export interface BuiltinDeck {

@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Input, Tag, Button, Card, SectionHeader, DropdownMenu } from "../components/ui/index";
+import { Input, Tag, Button, Card, SectionHeader, DropdownMenu, Badge } from "../components/ui/index";
 import { fetchCustomDecks, deleteDeck } from "../lib/decks";
 import { categoryInfo } from "../data/builtinDecks";
-import type { CustomDeck, CategoryKey } from "../lib/types";
+import type { CustomDeck, CategoryKey, Visibility } from "../lib/types";
 
 const CATEGORY_FILTERS: ("All" | CategoryKey)[] = ["All", "articulation", "phonology", "language", "literacy", "cognitive", "aac"];
+
+function VisibilityBadge({ visibility }: { visibility: Visibility }) {
+  if (visibility === "public") return <Badge color="success">Public</Badge>;
+  if (visibility === "unlisted") return <Badge color="warning">Unlisted</Badge>;
+  return <Badge color="neutral">Private</Badge>;
+}
 
 interface DeckMenuProps {
   deck: CustomDeck;
@@ -143,7 +149,10 @@ export default function MyDecks() {
                   {categoryInfo[d.category]?.emoji || "🗂️"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-[#1C1B29] text-sm truncate">{d.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-[#1C1B29] text-sm truncate">{d.title}</h3>
+                    <VisibilityBadge visibility={d.visibility} />
+                  </div>
                   <p className="text-xs text-[#9898A8]">{d.cards.length} cards · {categoryInfo[d.category]?.name}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -171,6 +180,7 @@ export default function MyDecks() {
               </div>
               <div className="p-4">
                 <h3 className="font-bold text-[#1C1B29] text-sm leading-snug mb-1 truncate">{d.title}</h3>
+                <div className="mb-1"><VisibilityBadge visibility={d.visibility} /></div>
                 <p className="text-xs text-[#9898A8] mb-3">{d.cards.length} cards · {categoryInfo[d.category]?.name}</p>
                 <div className="flex gap-2">
                   <Button size="sm" fullWidth onClick={() => navigate(`/play/${d.id}`)}>▶ Play</Button>

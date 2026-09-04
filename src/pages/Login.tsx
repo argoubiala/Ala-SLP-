@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { Button, Input, Card } from "../components/ui/index";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
-  const { signIn, signUp } = useAuth();
+  const { user, signIn, signUp } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // /login sits outside the RequireAuth-gated part of the app (on purpose,
+  // so a logged-out person can reach it) — which means nothing else
+  // automatically navigates away from it once sign-in succeeds. Without
+  // this, a successful login just leaves you sitting on this page.
+  useEffect(() => {
+    if (user) navigate("/", { replace: true });
+  }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,11 +35,13 @@ export default function Login() {
         const { error, needsConfirmation } = await signUp(email, password);
         if (error) setError(error);
         else if (needsConfirmation) setInfo("Account created! Check your email to confirm, then sign in.");
-        // otherwise onAuthStateChange takes over automatically
+        // otherwise the useEffect above handles navigation once the session lands
       } else {
         const { error } = await signIn(email, password);
         if (error) setError(error);
       }
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong reaching the server. Please try again.");
     } finally {
       setLoading(false);
     }
