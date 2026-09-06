@@ -1,77 +1,72 @@
-# Ala SLP Activities — V5 (Phase 1 + Phase 2: Community)
+# Ala SLP Activities — V5 (Phase 1 + 2 + 3: Complete)
 
-Phase 1 (real login, My Decks, Deck Creator, Activity Player) is already
-live. This update adds **Phase 2: Community** — Explore, publishing,
-ratings, favorites, and public creator profiles.
+All three phases from the original design brief are now built: core
+activities, community/publishing, and student progress tracking.
 
-## ⚠️ Before anything else: run the Phase 2 database schema
-This update needs new database tables and updated security rules that
-don't exist yet. **Nothing in this update will work until you run this.**
+## ⚠️ Run the Phase 3 database schema first
+1. Supabase dashboard → **SQL Editor** → **New query**.
+2. Paste all of `supabase-schema-phase3.sql` (included alongside this
+   README) and click **Run**.
+3. Expect "Success. No rows returned." This is safe to run after Phase 1
+   and Phase 2's schemas, and safe to re-run itself if needed.
 
-1. Open your Supabase dashboard → **SQL Editor** → **New query**.
-2. Open `supabase-schema-phase2.sql` (included alongside this README),
-   copy all of it, paste it into the query editor, and click **Run**.
-3. You should see "Success. No rows returned." If you see a red error
-   instead, copy the exact text and send it to me.
+Then deploy the app files the same way as before: copy everything into
+your repo (overwriting existing files), commit to `main`, check the
+Actions tab goes green.
 
-This is safe to run once, after the original `supabase-schema.sql` from
-Phase 1 (which you should have already run).
+## What's new in Phase 3
 
-## Getting the updated app files onto GitHub
-Same process as before:
-1. Copy every file/folder from this project into your repo, overwriting
-   the existing ones (folder structure stays the same, including the
-   hidden `.github` folder).
-2. Commit directly to `main` (or however you did it last time).
-3. Check the **Actions** tab — it rebuilds and redeploys automatically,
-   same as before. No settings need to change.
+- **Students** — add students (name, age, grade, notes), see them as cards
+  with live accuracy and goal progress at a glance.
+- **Student profiles** — three tabs:
+  - **Overview**: accuracy trend chart, recent sessions, goals with
+    progress bars, assigned activities
+  - **Activities**: full list of assigned decks, jump straight into
+    playing one
+  - **Notes**: free-form notes, saved to the student's record
+- **Goals** — add a goal (e.g. "Produce /r/ in initial position", target
+  100%), update progress, see it marked achieved automatically.
+- **Assigning activities** — assign any of your own decks to a student.
+  Playing an assigned activity automatically logs a session against that
+  student when you finish it — score, accuracy, and which deck, no manual
+  entry required.
+- **Progress dashboard** — sessions-per-week and accuracy-trend charts
+  across your whole caseload, an activity-performance breakdown (which
+  decks get the best/worst results), and a goal-progress table for every
+  student at a glance.
+- **Home dashboard** — the "Student Progress" and "Community Picks" cards
+  now show real data instead of placeholders (Community Picks was
+  actually a Phase 2 leftover I'd missed wiring up — fixed here too).
 
-## What's new and real in this update
-
-- **Explore** — search, filter by category/age/language/tags, sort by
-  Popular / Recent / Highest Rated / Most Used. Shows real published
-  activities from any account, not just your own.
-- **Publishing** — the Publish button in Deck Creator now works. Set
-  Private / Unlisted / Public, age range, language, tags, and whether
-  other therapists can copy the activity.
-  - **Private**: only you can see it (same as before).
-  - **Unlisted**: anyone with a direct link can open it, but it won't
-    show up in Explore search results.
-  - **Public**: listed in Explore for anyone to find.
-- **Ratings & favorites** — rate any public activity 1–5 stars, save it
-  as a favorite. Aggregated counts show up on the activity card and
-  detail page.
-- **"Use This Deck"** — copies someone else's public activity into your
-  own My Decks, including its images and audio (re-uploaded into your
-  own private storage, not shared with theirs).
-- **Creator profiles** — Settings → Public Profile lets you set a display
-  name, profession, bio, and an emoji avatar. This is what shows up when
-  someone clicks through from one of your published activities.
-- **My Decks** now shows a Private / Unlisted / Public badge on each
-  activity.
-
-## Still coming later (Phase 3)
-Students, Progress tracking, and session history are still "coming soon"
-placeholders — those need their own set of database tables (students,
-goals, sessions) that we haven't built yet.
+## How session logging works
+Start a session from a student's profile (via an assigned activity, or the
+"Start Session" button) and the URL carries a `?student=<id>` tag. When
+you finish the activity, the score gets saved automatically against that
+student — no separate "save" step. Playing an activity *without* going
+through a student profile first (e.g. just testing a deck from My Decks)
+does **not** log a session, since there's no student to attribute it to.
 
 ## A deliberate simplification worth knowing about
-Creator avatars are emoji, not uploaded photos — this avoids needing a
-second image-upload flow just for profile pictures. If you'd rather have
-real photo avatars later, that's a small addition on top of this.
+"Assigned Activities" is intentionally simple — no due dates or
+scheduling, just a list of decks tied to a student that you can mark
+complete. If you want scheduling/reminders later, that's a reasonable
+follow-up.
 
-## Known limitation worth knowing about (same as Phase 1)
-I still can't run `npm install` or connect to your live Supabase project
-from where I work — no internet access in my environment. What I *did* do
-this time:
-- Built a simulated Supabase client that mimics real query behavior
-  (filtering, sorting, upserts, RPC calls, and a joined "explore" view)
-  and ran the actual production code from `lib/community.ts` against it —
-  every function (publishing, rating, favoriting, copying a deck with its
-  media, creator lookups) passed, including subtle checks like "does a
-  copied deck's image end up in the new owner's own storage folder."
-- Server-rendered every new/changed page to catch structural errors.
+## Known limitation worth knowing about (same as before)
+Still no internet access in my working environment, so still no real
+`npm install` or live Supabase connection on my end. What I did this time:
+- Wrote a simulated Supabase client covering every new query pattern
+  (students/goals/sessions/assignments CRUD, ordering, limits) and ran the
+  actual `lib/students.ts` production code against it — all 14 checks
+  passed, including the aggregation math (accuracy averaging, weekly
+  bucketing) and goal-achieved logic.
+- Caught and fixed one real bug this way: a fragile `.then()` chain that
+  would only work correctly if the query builder was a fully spec-compliant
+  Promise — rewritten to a plain `async`/`await` helper instead, which is
+  both safer and clearer.
+- Server-rendered every new/changed page, including building a structural
+  stub for `recharts` (not installable in my sandbox either) just to
+  verify the chart components receive correctly-shaped data.
 
 The real first run is still your GitHub Actions build and your actual
-Supabase project. If anything errors, paste it back to me exactly as
-shown and I'll fix it.
+Supabase project. Paste back anything that errors and I'll fix it.

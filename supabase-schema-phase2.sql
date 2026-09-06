@@ -22,6 +22,7 @@ create index if not exists decks_visibility_idx on public.decks(visibility);
 -- any signed-in user to read public/unlisted decks (needed for Explore,
 -- deck detail pages, and previewing/playing someone else's activity).
 drop policy if exists "Users can view their own decks" on public.decks;
+drop policy if exists "Users can view own decks or publicly visible decks" on public.decks;
 create policy "Users can view own decks or publicly visible decks"
 on public.decks for select
 using (auth.uid() = user_id or visibility in ('public','unlisted'));
@@ -41,14 +42,17 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "Profiles are viewable by any signed-in user" on public.profiles;
 create policy "Profiles are viewable by any signed-in user"
 on public.profiles for select
 using (auth.uid() is not null);
 
+drop policy if exists "Users can create their own profile" on public.profiles;
 create policy "Users can create their own profile"
 on public.profiles for insert
 with check (auth.uid() = id);
 
+drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
 on public.profiles for update
 using (auth.uid() = id)
@@ -73,19 +77,23 @@ create table if not exists public.deck_ratings (
 
 alter table public.deck_ratings enable row level security;
 
+drop policy if exists "Ratings are viewable by any signed-in user" on public.deck_ratings;
 create policy "Ratings are viewable by any signed-in user"
 on public.deck_ratings for select
 using (auth.uid() is not null);
 
+drop policy if exists "Users can rate decks" on public.deck_ratings;
 create policy "Users can rate decks"
 on public.deck_ratings for insert
 with check (auth.uid() = user_id);
 
+drop policy if exists "Users can change their own rating" on public.deck_ratings;
 create policy "Users can change their own rating"
 on public.deck_ratings for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "Users can remove their own rating" on public.deck_ratings;
 create policy "Users can remove their own rating"
 on public.deck_ratings for delete
 using (auth.uid() = user_id);
@@ -103,14 +111,17 @@ create table if not exists public.deck_favorites (
 
 alter table public.deck_favorites enable row level security;
 
+drop policy if exists "Favorites are viewable by any signed-in user" on public.deck_favorites;
 create policy "Favorites are viewable by any signed-in user"
 on public.deck_favorites for select
 using (auth.uid() is not null);
 
+drop policy if exists "Users can favorite decks" on public.deck_favorites;
 create policy "Users can favorite decks"
 on public.deck_favorites for insert
 with check (auth.uid() = user_id);
 
+drop policy if exists "Users can remove their own favorite" on public.deck_favorites;
 create policy "Users can remove their own favorite"
 on public.deck_favorites for delete
 using (auth.uid() = user_id);
@@ -174,6 +185,7 @@ grant select on public.explore_decks to authenticated;
 -- deck detail pages, and "Use This Deck" all need to read another user's
 -- uploaded images/audio — but only when that specific file is actually
 -- attached to a deck that's been published as public or unlisted.
+drop policy if exists "Public deck media is readable by any signed-in user" on storage.objects;
 create policy "Public deck media is readable by any signed-in user"
 on storage.objects for select
 using (

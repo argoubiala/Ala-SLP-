@@ -7,10 +7,14 @@ import MyDecks from "../pages/MyDecks";
 import DeckCreator from "../pages/DeckCreator";
 import ActivityPlayer from "../pages/ActivityPlayer";
 import Settings from "../pages/Settings";
-import ComingSoon from "../pages/ComingSoon";
 import Explore from "../pages/Explore";
 import ActivityDetail from "../pages/ActivityDetail";
 import CreatorProfile from "../pages/CreatorProfile";
+import Students from "../pages/Students";
+import StudentProfile from "../pages/StudentProfile";
+import Progress from "../pages/Progress";
+import AdminAssetManager from "../pages/AdminAssetManager";
+import AdminGate from "../components/layout/AdminGate";
 
 function NotFound() {
   return (
@@ -37,20 +41,19 @@ export const router = createBrowserRouter(
         { path: "explore", Component: Explore },
         { path: "activity/:id", Component: ActivityDetail },
         { path: "my-decks", Component: MyDecks },
-        {
-          path: "students",
-          element: <ComingSoon icon="👥" title="Student tracking is coming soon" description="Soon you'll be able to manage students, assign activities, and track their goals here." />,
-        },
-        {
-          path: "students/:id",
-          element: <ComingSoon icon="👥" title="Student profiles are coming soon" description="Detailed student profiles will live here." />,
-        },
-        {
-          path: "progress",
-          element: <ComingSoon icon="📈" title="Progress tracking is coming soon" description="Session history, accuracy trends, and goal progress will show up here." />,
-        },
+        { path: "students", Component: Students },
+        { path: "students/:id", Component: StudentProfile },
+        { path: "progress", Component: Progress },
         { path: "creator/:id", Component: CreatorProfile },
         { path: "settings", Component: Settings },
+        {
+          path: "admin/assets",
+          element: (
+            <AdminGate>
+              <AdminAssetManager />
+            </AdminGate>
+          ),
+        },
         { path: "*", Component: NotFound },
       ],
     },

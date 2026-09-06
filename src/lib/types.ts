@@ -82,6 +82,84 @@ export interface ExploreDeck {
 
 export type SortOption = "popular" | "recent" | "rating" | "most_used";
 
+// ───────────────────────── Phase 3: Students & Progress ─────────────────────────
+
+export interface Student {
+  id: string;
+  user_id: string;
+  name: string;
+  age: number | null;
+  grade: string | null;
+  notes: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Goal {
+  id: string;
+  student_id: string;
+  user_id: string;
+  text: string;
+  target: number;
+  current: number;
+  unit: string;
+  category: string | null;
+  achieved: boolean;
+  created_at: string;
+}
+
+export interface PracticeSession {
+  id: string;
+  student_id: string;
+  user_id: string;
+  deck_id: string | null;
+  deck_title: string;
+  score: number;
+  total: number;
+  accuracy: number;
+  created_at: string;
+}
+
+export interface Assignment {
+  id: string;
+  student_id: string;
+  user_id: string;
+  deck_id: string | null;
+  deck_title: string;
+  completed: boolean;
+  assigned_at: string;
+}
+
+// ───────────────────────── Phase A/B: Asset Library ─────────────────────────
+
+export interface AssetCategory {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export type AssetType = "image" | "audio";
+export type AssetVisibility = "active" | "archived";
+
+export interface Asset {
+  id: string;
+  name: string;
+  category_id: string | null;
+  tags: string[];
+  asset_type: AssetType;
+  file_path: string;
+  thumbnail_path: string | null;
+  source: string | null;
+  license: string | null;
+  attribution: string | null;
+  visibility: AssetVisibility;
+  created_by: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
 // A built-in sample deck, hard-coded client-side (no login needed to view).
 export interface BuiltinDeck {
   id: string; // e.g. "builtin:articulation:0"

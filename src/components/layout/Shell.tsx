@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
+import { checkIsAdmin } from "../../lib/assets";
 
 const navItems = [
   { to: "/", label: "Home", icon: "⊞", exact: true },
@@ -20,6 +21,12 @@ export default function Shell() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    checkIsAdmin(user.id).then(setIsAdmin).catch(() => setIsAdmin(false));
+  }, [user]);
 
   async function handleSignOut() {
     setSidebarOpen(false);
@@ -80,6 +87,18 @@ export default function Shell() {
 
         {/* Profile */}
         <div className="border-t border-[#F0EFF9] p-4 space-y-1">
+          {isAdmin && (
+            <NavLink
+              to="/admin/assets"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? "bg-[#F3F0FF] text-[#7C5CFC]" : "text-[#6B6B80] hover:bg-[#F7F6F3] hover:text-[#1C1B29]"}`
+              }
+            >
+              <span className="w-8 flex justify-center text-base">🗂️</span>
+              Asset Library (Admin)
+            </NavLink>
+          )}
           <NavLink
             to="/settings"
             onClick={() => setSidebarOpen(false)}

@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, Button, StatCard, SectionHeader } from "../components/ui/index";
+import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../lib/auth";
 import { fetchCustomDecks } from "../lib/decks";
+import { fetchExploreDecks } from "../lib/community";
+import { fetchStudentsWithSummary, type StudentSummary } from "../lib/students";
 import { categoryInfo } from "../data/builtinDecks";
-import type { CustomDeck } from "../lib/types";
+import type { CustomDeck, ExploreDeck } from "../lib/types";
 
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [decks, setDecks] = useState<CustomDeck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [students, setStudents] = useState<StudentSummary[] | null>(null);
+  const [picks, setPicks] = useState<ExploreDeck[] | null>(null);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -20,6 +25,12 @@ export default function Home() {
     fetchCustomDecks()
       .then(setDecks)
       .catch(e => setError(e.message || "Couldn't load your decks"));
+    fetchStudentsWithSummary()
+      .then(setStudents)
+      .catch(() => setStudents([]));
+    fetchExploreDecks({ sort: "popular" })
+      .then(d => setPicks(d.slice(0, 2)))
+      .catch(() => setPicks([]));
   }, []);
 
   const totalCards = (decks || []).reduce((sum, d) => sum + d.cards.length, 0);
@@ -56,7 +67,7 @@ export default function Home() {
         <StatCard icon="📚" label="Your Activities" value={decks === null ? "…" : decks.length} color="#7C5CFC" />
         <StatCard icon="🃏" label="Total Cards" value={decks === null ? "…" : totalCards} color="#14B8A6" />
         <StatCard icon="🗂️" label="Categories Used" value={decks === null ? "…" : categoriesUsed} sub="out of 6" color="#F59E0B" />
-        <StatCard icon="🔒" label="Visibility" value="Private" sub="publishing coming soon" color="#F43F5E" />
+        <StatCard icon="🌐" label="Published" value={decks === null ? "…" : decks.filter(d => d.visibility !== "private").length} sub="public or unlisted" color="#F43F5E" />
       </div>
 
       {/* Main 2-col layout */}
@@ -105,25 +116,53 @@ export default function Home() {
         {/* Right - 1/3 */}
         <div className="space-y-6">
           <section>
-            <SectionHeader title="Student Progress" />
+            <SectionHeader title="Student Progress" action={<Button variant="ghost" size="sm" onClick={() => navigate("/students")}>View all →</Button>} />
             <Card className="mt-4">
-              <div className="text-center py-6">
-                <p className="text-3xl mb-2">👥</p>
-                <p className="text-sm font-semibold text-[#1C1B29] mb-1">Coming soon</p>
-                <p className="text-xs text-[#9898A8]">Track students and their progress right here.</p>
-              </div>
+              {students === null ? (
+                <p className="text-sm text-[#9898A8] text-center py-4">Loading…</p>
+              ) : students.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-3xl mb-2">👥</p>
+                  <p className="text-sm font-semibold text-[#1C1B29] mb-1">No students yet</p>
+                  <p className="text-xs text-[#9898A8] mb-3">Add a student to start tracking progress.</p>
+                  <Button size="sm" onClick={() => navigate("/students")}>+ Add Student</Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {students.slice(0, 3).map(s => (
+                    <div key={s.id} className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/students/${s.id}`)}>
+                      <div className="w-9 h-9 rounded-full bg-[#7C5CFC] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        {s.name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#1C1B29] truncate">{s.name}</p>
+                        <p className="text-xs text-[#9898A8]">{s.sessionsThisWeek} sessions this week</p>
+                      </div>
+                      <span className="text-sm font-bold" style={{ color: s.accuracy >= 80 ? "#22C55E" : s.accuracy >= 60 ? "#F59E0B" : "#EF4444" }}>{s.accuracy || "—"}{s.accuracy ? "%" : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </section>
 
           <section>
-            <SectionHeader title="Community Picks" />
-            <Card className="mt-4">
-              <div className="text-center py-6">
-                <p className="text-3xl mb-2">🌐</p>
-                <p className="text-sm font-semibold text-[#1C1B29] mb-1">Coming soon</p>
-                <p className="text-xs text-[#9898A8]">Discover activities made by other therapists.</p>
-              </div>
-            </Card>
+            <SectionHeader title="Community Picks" action={<Button variant="ghost" size="sm" onClick={() => navigate("/explore")}>Explore →</Button>} />
+            <div className="mt-4 space-y-3">
+              {picks === null ? (
+                <Card><p className="text-sm text-[#9898A8] text-center py-4">Loading…</p></Card>
+              ) : picks.length === 0 ? (
+                <Card>
+                  <div className="text-center py-6">
+                    <p className="text-3xl mb-2">🌐</p>
+                    <p className="text-sm font-semibold text-[#1C1B29] mb-1">Nothing published yet</p>
+                    <p className="text-xs text-[#9898A8]">Be the first to publish an activity from My Decks.</p>
+                  </div>
+                </Card>
+              ) : (
+                picks.map(p => <ActivityCard key={p.id} activity={p} variant="list" />)
+              )}
+            </div>
           </section>
         </div>
       </div>

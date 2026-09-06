@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import { Button } from "../components/ui/index";
 import { fetchCustomDeckById, getSignedMediaUrl } from "../lib/decks";
 import { getBuiltinDeckById } from "../data/builtinDecks";
+import { useAuth } from "../lib/auth";
+import { logSession, fetchStudentById } from "../lib/students";
 import type { AnyDeck, DeckCard } from "../lib/types";
 
 type AnswerState = "idle" | "correct" | "incorrect";
@@ -31,10 +33,15 @@ function Confetti() {
 export default function ActivityPlayer() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const studentId = searchParams.get("student");
 
   const [deck, setDeck] = useState<AnyDeck | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState<string | null>(null);
+  const [sessionLogged, setSessionLogged] = useState(false);
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -67,6 +74,24 @@ export default function ActivityPlayer() {
       .catch(e => setLoadError(e.message || "Couldn't load that activity."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!studentId) return;
+    fetchStudentById(studentId).then(s => setStudentName(s ? s.name : null));
+  }, [studentId]);
+
+  useEffect(() => {
+    if (!finished || !studentId || !user || !deck || sessionLogged) return;
+    setSessionLogged(true);
+    logSession(user.id, {
+      studentId,
+      deckId: id && id.startsWith("builtin:") ? null : deck.id,
+      deckTitle: deck.title,
+      score,
+      total: deck.cards.length,
+    }).catch(e => console.error("Couldn't log session:", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
 
   const cards: DeckCard[] = deck?.cards || [];
   const card = cards[currentIdx];
@@ -150,15 +175,20 @@ export default function ActivityPlayer() {
               <div><span className="font-bold text-[#1C1B29] text-lg">{cards.length}</span><p className="text-[#9898A8]">Total</p></div>
             </div>
           </div>
+          {studentId && (
+            <p className="text-xs font-medium text-[#22C55E] bg-[#F0FDF4] rounded-lg px-3 py-2 mb-4">
+              ✓ Session logged{studentName ? ` for ${studentName}` : ""}
+            </p>
+          )}
           <div className="flex flex-col gap-3">
             <Button
               fullWidth
               size="lg"
-              onClick={() => { setCurrentIdx(0); setScore(0); setFinished(false); setAnswerState("idle"); setSelectedAnswer(null); }}
+              onClick={() => { setCurrentIdx(0); setScore(0); setFinished(false); setAnswerState("idle"); setSelectedAnswer(null); setSessionLogged(false); }}
             >
               🔄 Play Again
             </Button>
-            <Button variant="secondary" fullWidth size="lg" onClick={() => navigate("/my-decks")}>
+            <Button variant="secondary" fullWidth size="lg" onClick={() => navigate(studentId ? `/students/${studentId}` : "/my-decks")}>
               Done
             </Button>
           </div>

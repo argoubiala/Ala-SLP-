@@ -1,57 +1,79 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { students } from "../data/mockData";
-import { Input, Button, Tag, SectionHeader, StatCard } from "../components/ui/index";
+import { useEffect, useState } from "react";
+import { Input, Button, Modal, Textarea } from "../components/ui/index";
 import StudentCard from "../components/StudentCard";
-import { Modal, Textarea, Select } from "../components/ui/index";
+import { useAuth } from "../lib/auth";
+import { fetchStudentsWithSummary, createStudent, type StudentSummary } from "../lib/students";
 
 export default function Students() {
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [students, setStudents] = useState<StudentSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
   const [addOpen, setAddOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
+  const [grade, setGrade] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const filtered = students.filter(s =>
-    !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.grade.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    load();
+  }, []);
 
-  const avgAccuracy = Math.round(students.reduce((a, s) => a + s.accuracy, 0) / students.length);
+  function load() {
+    setError(null);
+    fetchStudentsWithSummary()
+      .then(setStudents)
+      .catch(e => setError(e.message || "Couldn't load your students"));
+  }
+
+  async function handleAddStudent() {
+    if (!user || !name.trim()) {
+      alert("Please give the student a name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await createStudent(user.id, { name: name.trim(), age: age ? parseInt(age, 10) : null, grade: grade.trim(), notes: notes.trim() });
+      setAddOpen(false);
+      setName(""); setAge(""); setGrade(""); setNotes("");
+      load();
+    } catch (e: any) {
+      alert("Couldn't add student: " + (e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const filtered = (students || []).filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display font-bold text-2xl text-[#1C1B29]">My Students</h1>
-          <p className="text-[#6B6B80] text-sm mt-1">{students.length} students in your caseload</p>
+          <h1 className="font-display font-bold text-2xl text-[#1C1B29]">Students</h1>
+          <p className="text-[#6B6B80] text-sm mt-1">{students === null ? "Loading…" : `${students.length} in your caseload`}</p>
         </div>
         <Button onClick={() => setAddOpen(true)} icon={<span>+</span>}>Add Student</Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon="👥" label="Total Students" value={students.length} color="#7C5CFC" />
-        <StatCard icon="📈" label="Avg. Accuracy" value={`${avgAccuracy}%`} color="#22C55E" trend="up" trendValue="3%" />
-        <StatCard icon="🎯" label="Sessions This Week" value={students.reduce((a, s) => a + s.sessionsThisWeek, 0)} color="#14B8A6" />
-        <StatCard icon="🏆" label="Goals On Track" value={`${students.filter(s => s.accuracy >= 70).length}/${students.length}`} color="#F59E0B" />
+      {error && <div className="mb-5 text-sm font-medium text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{error}</div>}
+
+      <div className="mb-5 max-w-sm">
+        <Input placeholder="Search students…" value={search} onChange={e => setSearch(e.target.value)} icon={<span className="text-sm">🔍</span>} />
       </div>
 
-      {/* Search */}
-      <div className="mb-5">
-        <Input
-          placeholder="Search students by name or grade…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          icon={<span className="text-sm">🔍</span>}
-        />
-      </div>
-
-      {/* Student grid */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-center">
-          <p className="text-5xl mb-4">👤</p>
-          <h3 className="font-bold text-[#1C1B29] text-lg mb-2">No students found</h3>
-          <p className="text-[#6B6B80] text-sm mb-6">Add your first student to get started</p>
-          <Button onClick={() => setAddOpen(true)}>+ Add Student</Button>
+      {students === null ? (
+        <div className="flex justify-center py-24">
+          <div className="w-8 h-8 border-3 border-[#EAE4FF] border-t-[#7C5CFC] rounded-full animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center py-24 text-center">
+          <p className="text-5xl mb-4">👥</p>
+          <h3 className="font-bold text-[#1C1B29] text-lg mb-2">{search ? "No students found" : "No students yet"}</h3>
+          <p className="text-[#6B6B80] text-sm mb-6">{search ? "Try a different search" : "Add your first student to start tracking their progress"}</p>
+          {!search && <Button onClick={() => setAddOpen(true)}>+ Add Student</Button>}
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -59,36 +81,17 @@ export default function Students() {
         </div>
       )}
 
-      {/* Add student modal */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Student" size="md">
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a Student" size="md">
         <div className="space-y-4">
+          <Input label="Name" placeholder="e.g. Jordan Lee" value={name} onChange={e => setName(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="First Name" placeholder="Emma" />
-            <Input label="Last Name" placeholder="Rodriguez" />
+            <Input label="Age" type="number" placeholder="7" value={age} onChange={e => setAge(e.target.value)} />
+            <Input label="Grade" placeholder="e.g. 2nd Grade" value={grade} onChange={e => setGrade(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Age" type="number" placeholder="7" />
-            <Select
-              label="Grade"
-              value=""
-              onChange={() => {}}
-              options={[
-                { value: "", label: "Select grade" },
-                { value: "prek", label: "Pre-K" },
-                { value: "k", label: "Kindergarten" },
-                { value: "1", label: "1st Grade" },
-                { value: "2", label: "2nd Grade" },
-                { value: "3", label: "3rd Grade" },
-                { value: "4", label: "4th Grade" },
-                { value: "5", label: "5th Grade" },
-                { value: "6+", label: "6th Grade+" },
-              ]}
-            />
-          </div>
-          <Textarea label="Initial Notes" placeholder="Any relevant background information…" rows={3} />
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" fullWidth onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button fullWidth onClick={() => setAddOpen(false)}>Add Student</Button>
+          <Textarea label="Notes" placeholder="Anything worth remembering about this student" value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddStudent} loading={saving}>Add Student</Button>
           </div>
         </div>
       </Modal>
