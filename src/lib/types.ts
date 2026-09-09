@@ -23,8 +23,14 @@ export interface DeckCard {
   question: string;
   answers: string[];
   correct: number;
-  imagePath?: string | null; // path in Supabase Storage 'media' bucket
-  soundPath?: string | null; // path in Supabase Storage 'media' bucket
+  imagePath?: string | null; // storage path (bucket depends on imageBucket)
+  soundPath?: string | null; // storage path (bucket depends on soundBucket)
+  // Which bucket imagePath/soundPath live in. Omitted (undefined) on any
+  // card created before this field existed — treated as "media" (the
+  // private per-user bucket), which is exactly where those files already
+  // are, so old decks keep working with zero migration needed.
+  imageBucket?: "media" | "asset-library";
+  soundBucket?: "media" | "asset-library";
 }
 
 export type Visibility = "private" | "unlisted" | "public";
@@ -151,11 +157,14 @@ export interface Asset {
   asset_type: AssetType;
   file_path: string;
   thumbnail_path: string | null;
+  content_hash: string | null;
   source: string | null;
   license: string | null;
   attribution: string | null;
   visibility: AssetVisibility;
   created_by: string | null;
+  owner_id: string | null; // null = platform library asset; a user id = their own "My Media"
+  bucket: "asset-library" | "media";
   created_at: string;
   updated_at?: string;
 }

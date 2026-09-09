@@ -1,20 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button, Select, Textarea, Modal, Input } from "../components/ui/index";
 import { useAuth } from "../lib/auth";
 import { categoryInfo } from "../data/builtinDecks";
-import {
-  fetchCustomDeckById,
-  createDeck,
-  updateDeck,
-  uploadMediaFile,
-  deleteMediaFile,
-  getSignedMediaUrl,
-} from "../lib/decks";
+import { fetchCustomDeckById, createDeck, updateDeck } from "../lib/decks";
 import { updateDeckPublishing } from "../lib/community";
-import type { CategoryKey, DeckCard, Visibility } from "../lib/types";
-
-const MAX_MEDIA_BYTES = 8 * 1024 * 1024; // 8MB
+import { getAssetUrl } from "../lib/assets";
+import AssetPicker from "../components/AssetPicker";
+import type { Asset, CategoryKey, DeckCard, Visibility } from "../lib/types";
 
 const OTHER_TYPES = [
   { label: "Image Choice", icon: "🖼" },
@@ -29,13 +22,11 @@ interface EditableCard {
   question: string;
   answers: string[];
   correct: number;
-  imagePath: string | null; // already-uploaded path, if any
-  imageFile: File | null; // newly staged file, not yet uploaded
-  imageRemoved: boolean;
+  imagePath: string | null;
+  imageBucket: "media" | "asset-library" | null;
   imagePreviewUrl: string | null;
   soundPath: string | null;
-  soundFile: File | null;
-  soundRemoved: boolean;
+  soundBucket: "media" | "asset-library" | null;
   soundPreviewUrl: string | null;
 }
 
@@ -46,12 +37,10 @@ function makeCard(): EditableCard {
     answers: ["", ""],
     correct: 0,
     imagePath: null,
-    imageFile: null,
-    imageRemoved: false,
+    imageBucket: null,
     imagePreviewUrl: null,
     soundPath: null,
-    soundFile: null,
-    soundRemoved: false,
+    soundBucket: null,
     soundPreviewUrl: null,
   };
 }
@@ -82,9 +71,7 @@ export default function DeckCreator() {
   const [tagsText, setTagsText] = useState("");
   const [publishing, setPublishing] = useState(false);
 
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const soundInputRef = useRef<HTMLInputElement>(null);
-  const objectUrlsRef = useRef<string[]>([]);
+  const [pickerTarget, setPickerTarget] = useState<"image" | "sound" | null>(null);
 
   useEffect(() => {
     if (!editId) return;
@@ -111,9 +98,11 @@ export default function DeckCreator() {
             card.answers = c.answers.length >= 2 ? c.answers : [...c.answers, ""];
             card.correct = c.correct;
             card.imagePath = c.imagePath || null;
+            card.imageBucket = c.imagePath ? c.imageBucket || "media" : null; // older decks predate this field — their files are in 'media'
             card.soundPath = c.soundPath || null;
-            if (c.imagePath) card.imagePreviewUrl = await getSignedMediaUrl(c.imagePath);
-            if (c.soundPath) card.soundPreviewUrl = await getSignedMediaUrl(c.soundPath);
+            card.soundBucket = c.soundPath ? c.soundBucket || "media" : null;
+            if (card.imagePath) card.imagePreviewUrl = await getAssetUrl({ bucket: card.imageBucket!, file_path: card.imagePath });
+            if (card.soundPath) card.soundPreviewUrl = await getAssetUrl({ bucket: card.soundBucket!, file_path: card.soundPath });
             return card;
           })
         );
@@ -122,12 +111,6 @@ export default function DeckCreator() {
       .catch(e => setLoadError(e.message || "Couldn't load that activity."))
       .finally(() => setLoading(false));
   }, [editId]);
-
-  useEffect(() => {
-    return () => {
-      objectUrlsRef.current.forEach(u => URL.revokeObjectURL(u));
-    };
-  }, []);
 
   const card = cards[selectedCard];
 
@@ -164,29 +147,23 @@ export default function DeckCreator() {
     setSelectedCard(target);
   }
 
-  function handlePickImage(file: File) {
-    if (file.size > MAX_MEDIA_BYTES) {
-      alert("That image is a bit large — please choose one under 8MB.");
-      return;
+  // Assets picked from the Library or My Media are already uploaded and
+  // permanent — selecting one just references it. Removing it from a card
+  // never deletes the underlying asset, since the same image/sound might be
+  // used on other cards or in other decks too.
+  function handleAssetSelected(asset: Asset) {
+    if (pickerTarget === "image") {
+      getAssetUrl(asset).then(url => updateCard({ imagePath: asset.file_path, imageBucket: asset.bucket, imagePreviewUrl: url }));
+    } else if (pickerTarget === "sound") {
+      getAssetUrl(asset).then(url => updateCard({ soundPath: asset.file_path, soundBucket: asset.bucket, soundPreviewUrl: url }));
     }
-    const url = URL.createObjectURL(file);
-    objectUrlsRef.current.push(url);
-    updateCard({ imageFile: file, imageRemoved: false, imagePreviewUrl: url });
-  }
-  function handlePickSound(file: File) {
-    if (file.size > MAX_MEDIA_BYTES) {
-      alert("That audio file is a bit large — please choose one under 8MB.");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    objectUrlsRef.current.push(url);
-    updateCard({ soundFile: file, soundRemoved: false, soundPreviewUrl: url });
+    setPickerTarget(null);
   }
   function removeImage() {
-    updateCard({ imageFile: null, imageRemoved: true, imagePreviewUrl: null });
+    updateCard({ imagePath: null, imageBucket: null, imagePreviewUrl: null });
   }
   function removeSound() {
-    updateCard({ soundFile: null, soundRemoved: true, soundPreviewUrl: null });
+    updateCard({ soundPath: null, soundBucket: null, soundPreviewUrl: null });
   }
 
   function updateAnswer(i: number, value: string) {
@@ -224,39 +201,24 @@ export default function DeckCreator() {
 
     setSaving(true);
     try {
-      const finalCards: DeckCard[] = [];
-      for (const c of cards) {
-        let imagePath = c.imagePath;
-        let soundPath = c.soundPath;
-
-        if (c.imageFile) {
-          if (imagePath) await deleteMediaFile(imagePath);
-          imagePath = await uploadMediaFile(user.id, c.imageFile);
-        } else if (c.imageRemoved) {
-          if (imagePath) await deleteMediaFile(imagePath);
-          imagePath = null;
-        }
-        if (c.soundFile) {
-          if (soundPath) await deleteMediaFile(soundPath);
-          soundPath = await uploadMediaFile(user.id, c.soundFile);
-        } else if (c.soundRemoved) {
-          if (soundPath) await deleteMediaFile(soundPath);
-          soundPath = null;
-        }
-
+      // No uploads to do here anymore — picking an asset (Library, My
+      // Media, or a fresh upload via the picker) already saved it
+      // immediately, so cards already hold their final path/bucket.
+      const finalCards: DeckCard[] = cards.map(c => {
         const trimmedAnswers = c.answers.map(a => a.trim());
         const correctText = trimmedAnswers[c.correct];
         const nonEmptyAnswers = trimmedAnswers.filter(a => a.length > 0);
         const newCorrectIndex = nonEmptyAnswers.indexOf(correctText);
-
-        finalCards.push({
+        return {
           question: c.question.trim(),
           answers: nonEmptyAnswers,
           correct: newCorrectIndex,
-          imagePath,
-          soundPath,
-        });
-      }
+          imagePath: c.imagePath,
+          imageBucket: c.imageBucket || undefined,
+          soundPath: c.soundPath,
+          soundBucket: c.soundBucket || undefined,
+        };
+      });
 
       let resultId = deckId;
       if (deckId) {
@@ -273,19 +235,6 @@ export default function DeckCreator() {
         setDeckId(created.id);
         setSearchParams({ edit: created.id }, { replace: true });
       }
-
-      // Reflect uploaded paths back into local state so re-saving doesn't re-upload.
-      setCards(cs =>
-        cs.map((c, i) => ({
-          ...c,
-          imagePath: finalCards[i].imagePath ?? null,
-          soundPath: finalCards[i].soundPath ?? null,
-          imageFile: null,
-          soundFile: null,
-          imageRemoved: false,
-          soundRemoved: false,
-        }))
-      );
 
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
@@ -446,14 +395,7 @@ export default function DeckCreator() {
                     />
                   </div>
 
-                  {/* Image upload */}
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) handlePickImage(f); e.target.value = ""; }}
-                  />
+                  {/* Image */}
                   {card.imagePreviewUrl ? (
                     <div className="mb-5 relative rounded-xl overflow-hidden border-2 border-[#EAE4FF]">
                       <img src={card.imagePreviewUrl} alt="" className="w-full max-h-48 object-contain bg-[#F7F6F3]" />
@@ -464,13 +406,13 @@ export default function DeckCreator() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => imageInputRef.current?.click()}
+                      onClick={() => setPickerTarget("image")}
                       className="w-full mb-5 border-2 border-dashed border-[#D5C9FF] rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer hover:bg-[#F3F0FF] transition-colors group"
                     >
                       <span className="text-2xl">🖼</span>
                       <div className="text-center">
-                        <p className="text-sm font-medium text-[#6B6B80] group-hover:text-[#7C5CFC]">Click to add image</p>
-                        <p className="text-xs text-[#9898A8]">PNG, JPG up to 8MB</p>
+                        <p className="text-sm font-medium text-[#6B6B80] group-hover:text-[#7C5CFC]">Choose an image</p>
+                        <p className="text-xs text-[#9898A8]">From the library, your media, or upload new</p>
                       </div>
                     </button>
                   )}
@@ -510,13 +452,6 @@ export default function DeckCreator() {
         <div className="w-56 lg:w-64 bg-white border-l border-[#F0EFF9] overflow-y-auto shrink-0 p-4 space-y-4">
           <div>
             <p className="text-xs font-semibold text-[#9898A8] uppercase tracking-wider mb-2">Audio</p>
-            <input
-              ref={soundInputRef}
-              type="file"
-              accept="audio/*"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) handlePickSound(f); e.target.value = ""; }}
-            />
             {card?.soundPreviewUrl ? (
               <div className="border border-[#E8E7F0] rounded-xl p-2 flex items-center gap-2">
                 <audio controls src={card.soundPreviewUrl} className="w-full h-8" />
@@ -524,10 +459,10 @@ export default function DeckCreator() {
               </div>
             ) : (
               <button
-                onClick={() => soundInputRef.current?.click()}
+                onClick={() => setPickerTarget("sound")}
                 className="w-full border-2 border-dashed border-[#D5C9FF] rounded-xl p-3 text-center text-xs text-[#6B6B80] hover:bg-[#F3F0FF] transition-colors"
               >
-                🎵 Add audio prompt
+                🎵 Choose audio prompt
               </button>
             )}
           </div>
@@ -604,6 +539,13 @@ export default function DeckCreator() {
           </div>
         </div>
       </Modal>
+
+      <AssetPicker
+        open={pickerTarget !== null}
+        onClose={() => setPickerTarget(null)}
+        onSelect={handleAssetSelected}
+        assetType={pickerTarget === "sound" ? "audio" : "image"}
+      />
     </div>
   );
 }

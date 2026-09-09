@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { Button } from "../components/ui/index";
-import { fetchCustomDeckById, getSignedMediaUrl } from "../lib/decks";
+import { fetchCustomDeckById } from "../lib/decks";
+import { getAssetUrl } from "../lib/assets";
 import { getBuiltinDeckById } from "../data/builtinDecks";
 import { useAuth } from "../lib/auth";
 import { logSession, fetchStudentById } from "../lib/students";
@@ -102,13 +103,13 @@ export default function ActivityPlayer() {
     objectUrlsRef.current = [];
     setImageUrl(null);
     if (card?.imagePath) {
-      getSignedMediaUrl(card.imagePath).then(url => setImageUrl(url));
+      getAssetUrl({ bucket: card.imageBucket || "media", file_path: card.imagePath }).then(url => setImageUrl(url));
     }
   }, [currentIdx, deck]);
 
   function playSound() {
     if (!card?.soundPath) return;
-    getSignedMediaUrl(card.soundPath).then(url => {
+    getAssetUrl({ bucket: card.soundBucket || "media", file_path: card.soundPath }).then(url => {
       if (url) new Audio(url).play().catch(() => {});
     });
   }
